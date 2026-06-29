@@ -28,6 +28,61 @@
             {% endfor %}
         {% endwith %}
 
+        <div class="sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-header">
+                    <h3>📁 Projects</h3>
+                </div>
+                <ul class="project-list">
+                    {% for p in projects %}
+                    <li class="project-item {% if active_project_id == p['id'] %}active{% endif %}">
+                        <a href="{{ url_for('index', project=p['id']) }}" class="project-link">
+                            <span class="project-name">{{ p['name'] }}</span>
+                            <span class="project-count">{{ p['todo_count'] }}</span>
+                        </a>
+                        {% if p['name'] != 'Inbox' %}
+                        <form action="{{ url_for('project_delete', project_id=p['id']) }}" method="post" class="inline-form"
+                              onsubmit="return confirm('Xóa project này? Todos sẽ chuyển về Inbox.')">
+                            <button type="submit" class="btn-mini-delete" title="Xóa project">✕</button>
+                        </form>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                <form action="{{ url_for('project_new') }}" method="post" class="sidebar-add-form">
+                    <input type="text" name="name" placeholder="+ Project mới" required>
+                    <button type="submit" class="btn-mini-add">+</button>
+                </form>
+                {% if active_project_id %}
+                <a href="{{ url_for('index') }}" class="clear-filter">× Xem tất cả</a>
+                {% endif %}
+            </div>
+
+            {% if tags %}
+            <div class="sidebar-section">
+                <div class="sidebar-header">
+                    <h3>🏷 Tags</h3>
+                </div>
+                <ul class="tag-list">
+                    {% for t in tags %}
+                    <li class="tag-item {% if active_tag_id == t['id'] %}active{% endif %}">
+                        <a href="{{ url_for('index', tag=t['id']) }}" class="tag-link">
+                            #{{ t['name'] }} <span class="tag-count">{{ t['todo_count'] }}</span>
+                        </a>
+                        <form action="{{ url_for('tag_delete', tag_id=t['id']) }}" method="post" class="inline-form"
+                              onsubmit="return confirm('Xóa tag này?')">
+                            <button type="submit" class="btn-mini-delete" title="Xóa tag">✕</button>
+                        </form>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% if active_tag_id %}
+                <a href="{{ url_for('index') }}" class="clear-filter">× Xem tất cả</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
         <form action="{{ url_for('add') }}" method="post" class="add-form">
             <input type="text" name="title" placeholder="Nhập việc cần làm..." required autofocus>
             <input type="date" name="due_date" title="Hạn chót">
@@ -36,6 +91,12 @@
                 <option value="1" selected>Trung bình</option>
                 <option value="2">Cao</option>
             </select>
+            <select name="project_id" title="Project">
+                {% for p in projects %}
+                <option value="{{ p['id'] }}" {% if p['name'] == 'Inbox' %}selected{% endif %}>📁 {{ p['name'] }}</option>
+                {% endfor %}
+            </select>
+            <input type="text" name="tags" placeholder="Tags (phẩy cách)" title="Nhập tags, cách nhau bởi dấu phẩy" style="max-width:140px;">
             <button type="submit" class="btn-add">Thêm</button>
         </form>
 
@@ -76,6 +137,14 @@
                             {% endif %}
                             {% if todo['todoist_id'] %}
                                 <span class="todoist-badge" title="Đã sync Todoist">✅</span>
+                            {% endif %}
+                            {% if todo['project_name'] and todo['project_name'] != 'Inbox' %}
+                                <span class="project-badge">📁 {{ todo['project_name'] }}</span>
+                            {% endif %}
+                            {% if todo['tags'] %}
+                                <span class="tag-pills">
+                                {% for t in todo['tags'] %}<span class="tag-pill">#{{ t['name'] }}</span>{% endfor %}
+                                </span>
                             {% endif %}
                         </div>
                         <div class="actions">

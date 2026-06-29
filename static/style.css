@@ -627,3 +627,163 @@ button:active, .btn-settings:active, .btn-theme:active {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* ==========================================================================
+   Projects & Tags sidebar (Batch 2 additions)
+   ========================================================================== */
+
+.sidebar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+.sidebar-section {
+    flex: 1 1 220px;
+    background: var(--item-bg);
+    border-radius: 8px;
+    padding: 12px;
+}
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+.sidebar-header h3 {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0;
+}
+.project-list,
+.tag-list {
+    list-style: none;
+    margin: 0 0 8px;
+    padding: 0;
+}
+.project-item,
+.tag-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    border-radius: 6px;
+    padding: 2px 4px;
+    transition: background 0.15s;
+}
+.project-item:hover,
+.tag-item:hover {
+    background: var(--item-bg-hover);
+}
+.project-item.active,
+.tag-item.active {
+    background: var(--accent-shadow);
+}
+.project-link,
+.tag-link {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    text-decoration: none;
+    color: var(--text-primary);
+    font-size: 14px;
+    padding: 4px 6px;
+    min-width: 0;
+}
+.project-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.project-count,
+.tag-count {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--container-bg);
+    border-radius: 10px;
+    padding: 0 8px;
+    min-width: 20px;
+    text-align: center;
+}
+.sidebar-add-form {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+.sidebar-add-form input {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 10px;
+    background: var(--input-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    font-size: 13px;
+}
+.sidebar-add-form input:focus {
+    outline: none;
+    border-color: var(--input-border-focus);
+}
+.btn-mini-add {
+    width: 32px;
+    padding: 0;
+    background: var(--accent);
+    color: #fff;
+    font-size: 18px;
+    border-radius: 6px;
+}
+.btn-mini-add:hover {
+    background: var(--accent-hover);
+}
+.btn-mini-delete {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    font-size: 12px;
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: 4px;
+}
+.btn-mini-delete:hover {
+    background: var(--error-bg);
+    color: var(--error-text);
+}
+.clear-filter {
+    display: inline-block;
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    margin-top: 4px;
+}
+.clear-filter:hover {
+    text-decoration: underline;
+}
+
+/* Project badge + tag pills on todo items */
+.project-badge {
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: var(--container-bg);
+    border: 1px solid var(--input-border);
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 6px;
+    white-space: nowrap;
+}
+.tag-pills {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-left: 6px;
+}
+.tag-pill {
+    font-size: 11px;
+    color: var(--info-text);
+    background: var(--info-bg);
+    border: 1px solid var(--info-border);
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+}

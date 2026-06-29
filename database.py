@@ -39,8 +39,10 @@ def init_db():
                 todoist_id TEXT,
                 due_date TEXT,
                 priority INTEGER NOT NULL DEFAULT 0,
+                project_id INTEGER,
                 created_at TEXT NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES users (id)
+                FOREIGN KEY (user_id) REFERENCES users (id),
+                FOREIGN KEY (project_id) REFERENCES projects (id)
             )
             """
         )
@@ -48,6 +50,51 @@ def init_db():
         conn.execute("ALTER TABLE todos ADD COLUMN due_date TEXT")
     if existing_cols and "priority" not in existing_cols:
         conn.execute("ALTER TABLE todos ADD COLUMN priority INTEGER NOT NULL DEFAULT 0")
+    if existing_cols and "project_id" not in existing_cols:
+        conn.execute("ALTER TABLE todos ADD COLUMN project_id INTEGER")
+    conn.commit()
+
+    # Create projects table
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            todoist_project_id TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+        """
+    )
+
+    # Create tags table
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            UNIQUE (user_id, name)
+        )
+        """
+    )
+
+    # Create todo_tags junction table
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS todo_tags (
+            todo_id INTEGER NOT NULL,
+            tag_id INTEGER NOT NULL,
+            PRIMARY KEY (todo_id, tag_id),
+            FOREIGN KEY (todo_id) REFERENCES todos (id) ON DELETE CASCADE,
+            FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
+        )
+        """
+    )
+
     conn.commit()
     conn.close()
 
