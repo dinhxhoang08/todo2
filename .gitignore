@@ -1,0 +1,9 @@
+todos.db
+*.db
+__pycache__/
+*.pyc
+*.pyo
+app.log
+*.log
+.agents_tmp/
+.DS_Store
