@@ -56,6 +56,7 @@ def register():
         if user_id is None:
             flash("Username đã tồn tại.", "error")
             return render_template("register.html")
+        db.ensure_inbox(user_id)
         user = User(user_id, username)
         login_user(user)
         return redirect(url_for("index"))
@@ -107,8 +108,27 @@ def settings():
 @app.route("/")
 @login_required
 def index():
-    todos = db.get_all_todos(current_user.id)
-    return render_template("index.html", todos=todos, today=date.today().isoformat())
+    project_id = request.args.get("project", type=int)
+    tag_id = request.args.get("tag", type=int)
+    db.ensure_inbox(current_user.id)
+    projects = db.get_projects(current_user.id)
+    tags = db.get_tags(current_user.id)
+    todos = db.get_todos(current_user.id, project_id=project_id, tag_id=tag_id)
+    # Attach tags to each todo
+    todos_with_tags = []
+    for todo in todos:
+        t = dict(todo)
+        t["tags"] = db.get_todo_tags(todo["id"])
+        todos_with_tags.append(t)
+    return render_template(
+        "index.html",
+        todos=todos_with_tags,
+        projects=projects,
+        tags=tags,
+        active_project_id=project_id,
+        active_tag_id=tag_id,
+        today=date.today().isoformat(),
+    )
 
 
 @app.route("/add", methods=["POST"])
@@ -117,9 +137,30 @@ def add():
     title = request.form.get("title", "").strip()
     due_date = request.form.get("due_date", "").strip() or None
     priority = int(request.form.get("priority", 0))
+    project_id = request.form.get("project_id", type=int)
+    tag_str = request.form.get("tags", "").strip()
+    if not project_id:
+        project_id = db.ensure_inbox(current_user.id)
     if title:
         todo_id = db.add_todo(current_user.id, title, due_date, priority)
-        tid = todoist.create_task(current_user.todoist_token, title, due_date, priority)
+        # Set project
+        conn = db.get_connection()
+        conn.execute("UPDATE todos SET project_id = ? WHERE id = ?", (project_id, todo_id))
+        conn.commit()
+        conn.close()
+        # Set tags
+        if tag_str:
+            tag_names = [t.strip() for t in tag_str.split(",") if t.strip()]
+            tag_ids = [db.get_or_create_tag(current_user.id, name) for name in tag_names]
+            db.set_todo_tags(todo_id, [tid for tid in tag_ids if tid])
+        # Sync to Todoist
+        project = db.get_project(project_id, current_user.id)
+        todoist_project_id = project["todoist_project_id"] if project else None
+        labels = [t.strip() for t in tag_str.split(",") if t.strip()] if tag_str else None
+        tid = todoist.create_task(
+            current_user.todoist_token, title, due_date, priority,
+            todoist_project_id=todoist_project_id, labels=labels,
+        )
         if tid:
             db.update_todo_todoist_id(todo_id, tid)
     return redirect(url_for("index"))
@@ -135,11 +176,32 @@ def edit(todo_id):
         title = request.form.get("title", "").strip()
         due_date = request.form.get("due_date", "").strip() or None
         priority = int(request.form.get("priority", 0))
+        project_id = request.form.get("project_id", type=int) or db.ensure_inbox(current_user.id)
+        tag_str = request.form.get("tags", "").strip()
         if title:
             todoist_id = db.update_todo(todo_id, current_user.id, title, due_date, priority)
-            todoist.update_task(current_user.todoist_token, todoist_id, title, due_date, priority)
+            # Update project
+            conn = db.get_connection()
+            conn.execute("UPDATE todos SET project_id = ? WHERE id = ?", (project_id, todo_id))
+            conn.commit()
+            conn.close()
+            # Update tags
+            tag_names = [t.strip() for t in tag_str.split(",") if t.strip()] if tag_str else []
+            tag_ids = [db.get_or_create_tag(current_user.id, name) for name in tag_names]
+            db.set_todo_tags(todo_id, [tid for tid in tag_ids if tid])
+            # Sync to Todoist
+            project = db.get_project(project_id, current_user.id)
+            todoist_project_id = project["todoist_project_id"] if project else None
+            labels = tag_names if tag_names else None
+            todoist.update_task(
+                current_user.todoist_token, todoist_id, title, due_date, priority,
+                todoist_project_id=todoist_project_id, labels=labels,
+            )
         return redirect(url_for("index"))
-    return render_template("edit.html", todo=todo)
+    projects = db.get_projects(current_user.id)
+    todo_tags = db.get_todo_tags(todo_id)
+    tag_str = ", ".join(t["name"] for t in todo_tags)
+    return render_template("edit.html", todo=todo, projects=projects, tag_str=tag_str)
 
 
 @app.route("/toggle/<int:todo_id>", methods=["POST"])
@@ -193,6 +255,44 @@ def sync():
         flash(f"Đã đồng bộ {total}/{len(todos)} todo lên Todoist ({new_synced} mới tạo).", "success")
     return redirect(url_for("index"))
 
+
+
+
+# --- Project routes ---
+
+@app.route("/project/new", methods=["POST"])
+@login_required
+def project_new():
+    name = request.form.get("name", "").strip()
+    if name:
+        project_id = db.create_project(current_user.id, name)
+        # Try to create on Todoist
+        if current_user.todoist_token:
+            todoist_pid = todoist.get_or_create_project(current_user.todoist_token, name)
+            if todoist_pid:
+                db.update_project_todoist_id(project_id, todoist_pid)
+        flash(f"Đã tạo project '{name}'.", "success")
+    return redirect(url_for("index"))
+
+
+@app.route("/project/<int:project_id>/delete", methods=["POST"])
+@login_required
+def project_delete(project_id):
+    inbox_id = db.ensure_inbox(current_user.id)
+    if project_id == inbox_id:
+        flash("Không thể xóa project Inbox.", "error")
+    else:
+        db.delete_project(project_id, current_user.id, inbox_id)
+        flash("Đã xóa project. Todos đã chuyển về Inbox.", "success")
+    return redirect(url_for("index"))
+
+
+@app.route("/tag/<int:tag_id>/delete", methods=["POST"])
+@login_required
+def tag_delete(tag_id):
+    db.delete_tag(tag_id, current_user.id)
+    flash("Đã xóa tag.", "success")
+    return redirect(url_for("index"))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8011, debug=False)
