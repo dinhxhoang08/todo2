@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo List</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>(function(){var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);})();</script>
+    <script src="{{ url_for('static', filename='theme.js') }}" defer></script>
+</head>
+<body>
+    <div class="container">
+        <div class="topbar">
+            <h1>📝 Todo List</h1>
+            <div class="user-info">
+                <span>👤 {{ current_user.username }}</span>
+                <button type="button" class="btn-theme" id="theme-toggle" title="Đổi chế độ sáng/tối">🌙</button>
+                <a href="{{ url_for('settings') }}" class="btn-settings">⚙ Settings</a>
+                <form action="{{ url_for('logout') }}" method="post" class="inline-form">
+                    <button type="submit" class="btn-logout">Đăng xuất</button>
+                </form>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endwith %}
+
+        <form action="{{ url_for('add') }}" method="post" class="add-form">
+            <input type="text" name="title" placeholder="Nhập việc cần làm..." required autofocus>
+            <input type="date" name="due_date" title="Hạn chót">
+            <select name="priority" title="Mức độ ưu tiên">
+                <option value="0">Thấp</option>
+                <option value="1" selected>Trung bình</option>
+                <option value="2">Cao</option>
+            </select>
+            <button type="submit" class="btn-add">Thêm</button>
+        </form>
+
+        <div class="filter-bar">
+            <input type="text" id="search" placeholder="🔍 Tìm kiếm..." autocomplete="off">
+            <div class="filter-buttons">
+                <button type="button" class="filter-btn active" data-filter="all">Tất cả</button>
+                <button type="button" class="filter-btn" data-filter="active">Chưa xong</button>
+                <button type="button" class="filter-btn" data-filter="completed">Đã xong</button>
+                <button type="button" class="filter-btn" data-filter="overdue">Quá hạn</button>
+            </div>
+        </div>
+
+        <div class="bulk-actions">
+            <form action="{{ url_for('sync') }}" method="post" class="inline-form">
+                <button type="submit" class="btn-sync">🔄 Sync Todoist</button>
+            </form>
+            {% if todos %}
+            <form action="{{ url_for('delete_all') }}" method="post" class="inline-form"
+                  onsubmit="return confirm('Xóa tất cả todo?')">
+                <button type="submit" class="btn-delete-all">🗑 Xóa tất cả</button>
+            </form>
+            {% endif %}
+        </div>
+
+        {% if todos %}
+            <ul class="todo-list" id="todo-list">
+                {% for todo in todos %}
+                    <li class="todo-item {% if todo['completed'] %}completed{% endif %} priority-{{ todo['priority'] }} {% if todo['due_date'] and todo['due_date'] < today and not todo['completed'] %}overdue{% endif %}"
+                        data-title="{{ todo['title']|lower }}"
+                        data-completed="{{ 'true' if todo['completed'] else 'false' }}"
+                        data-due="{{ todo['due_date'] or '' }}">
+                        <div class="todo-main">
+                            <span class="priority-dot"></span>
+                            <span class="todo-title">{{ todo['title'] }}</span>
+                            {% if todo['due_date'] %}
+                                <span class="due-date {% if todo['due_date'] < today and not todo['completed'] %}overdue-text{% endif %}">📅 {{ todo['due_date'] }}</span>
+                            {% endif %}
+                            {% if todo['todoist_id'] %}
+                                <span class="todoist-badge" title="Đã sync Todoist">✅</span>
+                            {% endif %}
+                        </div>
+                        <div class="actions">
+                            <a href="{{ url_for('edit', todo_id=todo['id']) }}" class="btn-edit" title="Sửa">✏️</a>
+                            <form action="{{ url_for('toggle', todo_id=todo['id']) }}" method="post" class="inline-form">
+                                <button type="submit" class="btn-toggle" title="Đảo trạng thái">
+                                    {% if todo['completed'] %}↩{% else %}✓{% endif %}
+                                </button>
+                            </form>
+                            <form action="{{ url_for('delete', todo_id=todo['id']) }}" method="post" class="inline-form">
+                                <button type="submit" class="btn-delete" title="Xóa">✕</button>
+                            </form>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="empty">Chưa có việc nào. Thêm việc đầu tiên ở trên!</p>
+        {% endif %}
+    </div>
+
+    <script>
+    (function(){
+        var search = document.getElementById('search');
+        var filterBtns = document.querySelectorAll('.filter-btn');
+        var list = document.getElementById('todo-list');
+        if (!list) return;
+        var items = list.querySelectorAll('.todo-item');
+        var today = new Date().toISOString().slice(0,10);
+
+        function applyFilters() {
+            var q = search.value.toLowerCase();
+            var active = document.querySelector('.filter-btn.active');
+            var filter = active ? active.dataset.filter : 'all';
+            items.forEach(function(li){
+                var title = li.dataset.title || '';
+                var completed = li.dataset.completed === 'true';
+                var due = li.dataset.due || '';
+                var matchSearch = title.indexOf(q) !== -1;
+                var matchFilter = filter === 'all' ||
+                    (filter === 'completed' && completed) ||
+                    (filter === 'active' && !completed) ||
+                    (filter === 'overdue' && due && due < today && !completed);
+                li.style.display = (matchSearch && matchFilter) ? '' : 'none';
+            });
+        }
+
+        search.addEventListener('input', applyFilters);
+        filterBtns.forEach(function(btn){
+            btn.addEventListener('click', function(){
+                filterBtns.forEach(function(b){ b.classList.remove('active'); });
+                btn.classList.add('active');
+                applyFilters();
+            });
+        });
+    })();
+    </script>
+</body>
+</html>

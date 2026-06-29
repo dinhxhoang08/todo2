@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sửa Todo - Todo List</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>(function(){var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);})();</script>
+    <script src="{{ url_for('static', filename='theme.js') }}" defer></script>
+</head>
+<body>
+    <div class="container">
+        <div class="topbar">
+            <h1>✏️ Sửa Todo</h1>
+            <div class="user-info">
+                <a href="{{ url_for('index') }}" class="btn-settings">← Quay lại</a>
+            </div>
+        </div>
+
+        <form action="{{ url_for('edit', todo_id=todo['id']) }}" method="post" class="edit-form">
+            <div class="form-group">
+                <label for="title">Tiêu đề</label>
+                <input type="text" name="title" id="title" value="{{ todo['title'] }}" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="due_date">Hạn chót</label>
+                <input type="date" name="due_date" id="due_date" value="{{ todo['due_date'] or '' }}">
+            </div>
+            <div class="form-group">
+                <label for="priority">Mức độ ưu tiên</label>
+                <select name="priority" id="priority">
+                    <option value="0" {% if todo['priority'] == 0 %}selected{% endif %}>Thấp</option>
+                    <option value="1" {% if todo['priority'] == 1 %}selected{% endif %}>Trung bình</option>
+                    <option value="2" {% if todo['priority'] == 2 %}selected{% endif %}>Cao</option>
+                </select>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn-add">Lưu</button>
+                <a href="{{ url_for('index') }}" class="btn-cancel">Hủy</a>
+            </div>
+        </form>
+    </div>
+</body>
+</html>
