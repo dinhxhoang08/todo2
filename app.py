@@ -1,4 +1,5 @@
 import os
+import traceback
 
 from datetime import date
 
@@ -236,23 +237,27 @@ def delete_all():
 @app.route("/sync", methods=["POST"])
 @login_required
 def sync():
-    if not current_user.todoist_token:
-        flash("Chưa cấu hình Todoist API token. Vào Settings để thêm.", "error")
-        return redirect(url_for("index"))
-    if not todoist.verify_token(current_user.todoist_token):
-        flash("Todoist API token không hợp lệ hoặc hết hạn. Kiểm tra lại trong Settings.", "error")
-        return redirect(url_for("index"))
-    todos = db.get_all_todos(current_user.id)
-    created = todoist.sync_all_tasks(current_user.todoist_token, todos)
-    for local_id, tid in created:
-        db.update_todo_todoist_id(local_id, tid)
-    already_synced = sum(1 for t in todos if t["todoist_id"])
-    new_synced = len(created)
-    total = already_synced + new_synced
-    if new_synced == 0 and already_synced == 0 and len(todos) > 0:
-        flash("Không thể đồng bộ. Kiểm tra lại Todoist API token.", "error")
-    else:
-        flash(f"Đã đồng bộ {total}/{len(todos)} todo lên Todoist ({new_synced} mới tạo).", "success")
+    try:
+        if not current_user.todoist_token:
+            flash("Chưa cấu hình Todoist API token. Vào Settings để thêm.", "error")
+            return redirect(url_for("index"))
+        if not todoist.verify_token(current_user.todoist_token):
+            flash("Todoist API token không hợp lệ hoặc hết hạn. Kiểm tra lại trong Settings.", "error")
+            return redirect(url_for("index"))
+        todos = db.get_all_todos(current_user.id)
+        created = todoist.sync_all_tasks(current_user.todoist_token, todos)
+        for local_id, tid in created:
+            db.update_todo_todoist_id(local_id, tid)
+        already_synced = sum(1 for t in todos if t["todoist_id"])
+        new_synced = len(created)
+        total = already_synced + new_synced
+        if new_synced == 0 and already_synced == 0 and len(todos) > 0:
+            flash("Không thể đồng bộ. Kiểm tra lại Todoist API token.", "error")
+        else:
+            flash(f"Đã đồng bộ {total}/{len(todos)} todo lên Todoist ({new_synced} mới tạo).", "success")
+    except Exception as e:
+        app.logger.error("SYNC ERROR: %s\n%s", e, traceback.format_exc())
+        flash(f"Lỗi đồng bộ: {e}", "error")
     return redirect(url_for("index"))
 
 
